@@ -1,0 +1,17 @@
+Hello Hedgehogs! Today we are making a pretty cool project!
+
+Essentially we are going to be imiting an exchange sending out data using captured pcapng files
+We then broadcast that out on UDP multicast
+
+Then we will create the side of our (so called) firm. They will read the signal and create their own 
+UDP multicast but INTENTIONALLY lose 5% of the data to mimic irl conditions (exaggerated)
+
+Then, via TCP connection, we can call our firm directly for the information we were missing.
+
+We then have some tests to see whether or not the data all came through andin the correct order!
+
+We will first and foremost do a lot with networking, we will make hash functions, read IEX's real documentation
+(in our case, our pcapng file is in the DEEP+ format), optimize data streams, and more. 
+
+All of this should run on a Linux Docker container!
+Check out the GitHub at: github.com/HedgehogDubz/MegaFeedHandler
