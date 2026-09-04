@@ -37,7 +37,17 @@ inline uint64_t get_u64(const uint8_t *bytes) {
 }
 
 //based on IEX format price * 10000
-constexpr uint64_t PRICE_MULTIPLIER = 10000;
-inline double price_to_double(uint64_t price) {
-    return (double)price / PRICE_MULTIPLIER;
+// Signed: IEX encodes price as a signed 8-byte fixed-point value, so an
+// unsigned parameter would turn any negative price into ~1.8e15.
+constexpr int64_t PRICE_MULTIPLIER = 10000;
+inline double price_to_double(int64_t price) {
+    return (double)price / (double)PRICE_MULTIPLIER;
 }
+
+struct OrderMessage {
+    char type = 0;
+    char symbol[9];
+    int64_t price =0;
+    uint32_t size =0;
+    uint64_t timestamp = 0;
+};
