@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
-inline void copy_symbol(char *destination, const uint8_t *bytes) {
+inline void copy_symbol(char (&destination)[9], const uint8_t *bytes) {
     int length = 8;
     while (length > 0 &&
            (bytes[length - 1] == ' ' || bytes[length - 1] == '\0')) {
@@ -16,30 +16,27 @@ inline void copy_symbol(char *destination, const uint8_t *bytes) {
 struct Level {
     std::unordered_map<int64_t, int64_t> side[2];//0 is bids, 1 is asks
 };
-inline std::unordered_map<std::string, class Level> levels;
+inline std::unordered_map<std::string, struct Level> levels;
 
 struct DeepPlusDecoder {
 
     struct Order {
         char symbol[9];
-        uint64_t price;
+        int64_t price;
         uint32_t size;
         uint8_t side;
     };
 
     std::unordered_map<uint64_t, Order> orders;
 
-    struct Levels {
-        std::unordered_map<int64_t, class Level> totals;
-    };
-
     uint64_t unknown_references = 0;
 
 
-    void addLevel(OrderMessage out[2], int &count, Order order, uint64_t size, uint64_t timestamp) {
+    void addLevel(OrderMessage out[2], int &count, const Order &order,
+                  int64_t delta, uint64_t timestamp) {
         auto &level_sizes = levels[order.symbol].side[order.side];
         
-        int64_t new_total = (level_sizes[order.price] += size);
+        int64_t new_total = (level_sizes[order.price] += delta);
 
         if (new_total <= 0) {
             level_sizes.erase(order.price);
@@ -49,7 +46,7 @@ struct DeepPlusDecoder {
         OrderMessage &update = out[count++];
         update = OrderMessage{};
         update.type = order.side ? 'S' : 'B';
-        memcpy(update.symbol, order.symbol, sizeof(update.symbol));
+        std::memcpy(update.symbol, order.symbol, sizeof(update.symbol));
         update.price = order.price;
         update.size = (uint32_t)new_total;
         update.timestamp = timestamp;
@@ -67,7 +64,7 @@ struct DeepPlusDecoder {
 
         int count = 0;
 
-        constexpr unsigned char ORDER_ADD = 0x64;
+        constexpr unsigned char ORDER_ADD = 0x61;
         constexpr unsigned char SIDE_BUY = 0x38;
         constexpr unsigned char SIDE_SELL = 0x35;
 
@@ -78,13 +75,13 @@ struct DeepPlusDecoder {
             copy_symbol(order.symbol, bytes + 10);
             
             order.size = get_u32(bytes + 26);
-            order.price = get_u64(bytes + 30);
+            order.price = (int64_t)get_u64(bytes + 30);
 
             const uint64_t orderID = get_u64(bytes + 18);
             orders[orderID] = order;
 
             //add its size to the level
-            addLevel(out, count, order, (uint64_t)order.size, timestamp);
+            addLevel(out, count, order, (int64_t)order.size, timestamp);
             return count;
         }
         if (bytes[0] == 0x52 && length >= 26) { // 'R' order delete
@@ -152,7 +149,7 @@ struct DeepPlusDecoder {
             trade.type = 'T';
             // The order remembers the symbol; the message body does not repeat
             // it here.
-            memcpy(trade.symbol, order.symbol, sizeof trade.symbol);
+            std::memcpy(trade.symbol, order.symbol, sizeof trade.symbol);
             trade.price =
                 (int64_t)get_u64(bytes + 30); // trade price from the message
             trade.size = executed;

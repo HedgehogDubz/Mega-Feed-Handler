@@ -55,6 +55,10 @@ inline uint64_t wall_ns() {
     clock_gettime(CLOCK_REALTIME, &ts);
     return (uint64_t)ts.tv_sec * 1000000000ull + ts.tv_nsec;
 }
+inline void ms_sleep(long long ms) {
+    timespec ts{(time_t)(ms / 1000), (long)((ms % 1000) * 1000000LL)};
+    nanosleep(&ts, nullptr);
+}
 
 // Both sleeps bail on g_stop so a signal during a long replay gap does not
 // look like a hang.
@@ -266,35 +270,36 @@ inline int tcp_connect(const std::string &host, int port) {
     return fd;
 }
 
-// Named read_full, not read: `bool read(int, void *, size_t)` collides with
-// POSIX read(2) from <unistd.h> (same parameters, different return type).
-inline bool read_full(int fd, void *buf, size_t remaining) {
-    uint8_t *ptr = (uint8_t *)buf;
-    while (remaining > 0) {
-        if (g_stop) {
-            return false;
-        }
-        ssize_t n = recv(fd, ptr, remaining, 0);
-        if (n < 0) {
-            if (errno == EINTR) {
+// A TCP connection is a pipe of bytes with no message boundaries: it will
+// hand you half a message, or two and a half. These two loop until exactly
+// n bytes have moved 
+inline bool read_exact(int fd, void *buf, size_t remaining) {
+    uint8_t *cursor = (uint8_t *)buf;
+    while (remaining) {
+        ssize_t moved = recv(fd, cursor, remaining, 0);
+        if (moved == 0)
+            return false; // peer closed
+        if (moved < 0) {
+            if (errno == EINTR)
                 continue;
-            }
-            // Tolerate a non-blocking fd: wait for readability instead of
-            // reporting EAGAIN as a hard failure.
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                pollfd p{fd, POLLIN, 0};
-                if (poll(&p, 1, 1000) < 0 && errno != EINTR) {
-                    return false;
-                }
+            return false;
+        }
+        cursor += moved;
+        remaining -= (size_t)moved;
+    }
+    return true;
+}
+inline bool write_all(int fd, const void *buf, size_t remaining) {
+    const uint8_t *cursor = (const uint8_t *)buf;
+    while (remaining) {
+        ssize_t moved = send(fd, cursor, remaining, 0);
+        if (moved < 0) {
+            if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
                 continue;
-            }
             return false;
         }
-        if (n == 0) {
-            return false;
-        }
-        ptr += n;
-        remaining -= (size_t)n;
+        cursor += moved;
+        remaining -= (size_t)moved;
     }
     return true;
 }

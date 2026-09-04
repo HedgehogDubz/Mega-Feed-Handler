@@ -35,9 +35,9 @@ struct FeedHandler {
         if (expected) {
             if (header.first_sequence_number > expected) {
                 capture_gaps += header.first_sequence_number - expected;
+            } else if (header.first_sequence_number < expected) {
+                skip = expected - header.first_sequence_number;
             }
-        } else if (header.first_sequence_number > 1) {
-            skip = expected - header.first_sequence_number;
         }
         iextp_for_each_message(
             payload, length, header,
@@ -64,3 +64,9 @@ struct FeedHandler {
         std::print("Published: {}\n", (unsigned long long)published);
     }
 };
+int main() {
+    // TODO: replay pcapng -> on_payload -> FeedPublisher
+    FeedHandler handler;
+    handler.report();
+    return 0;
+}
