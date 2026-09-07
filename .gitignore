@@ -2,3 +2,4 @@ bin/
 *.log
 pcapngs/
 .DS_Store
+.check.cpp

@@ -15,7 +15,17 @@ bin/%: src/%.cpp $(HDRS) | bin
 bin:
 	mkdir -p bin
 
+# A header nothing #includes yet is never compiled, so `all` can stay green
+# while it is broken. This checks each one standalone.
+check: $(HDRS)
+	@for h in $(HDRS); do \
+	  printf '  %-24s' "$$h"; \
+	  echo "#include \"$$h\"" > .check.cpp; \
+	  $(CXX) $(CXXFLAGS) -fsyntax-only -I. .check.cpp || { rm -f .check.cpp; exit 1; }; \
+	  echo ok; \
+	done; rm -f .check.cpp
+
 clean:
 	rm -rf bin
 
-.PHONY: all clean
+.PHONY: all check clean

@@ -26,7 +26,7 @@ inline volatile std::sig_atomic_t g_stop = 0;
 // normally. SIGTERM matters as much as SIGINT: `docker stop` sends SIGTERM,
 // and an unhandled signal is *ignored* when the process is PID 1 in a
 // container, so the runtime waits out the grace period and then SIGKILLs.
-inline void install_signals() {
+inline void install_sigint() {
     struct sigaction sa {};
     sa.sa_handler = [](int) { g_stop = 1; };
     sigemptyset(&sa.sa_mask);
@@ -289,13 +289,35 @@ inline bool read_exact(int fd, void *buf, size_t remaining) {
     }
     return true;
 }
+// SIGPIPE's default action is to TERMINATE the process, so a peer that hangs
+// up mid-write would take the whole feed down -- publisher, every bucket, and
+// every other subscriber -- because one consumer went away. macOS suppresses
+// it per socket via SO_NOSIGPIPE above; Linux has no such option and needs the
+// flag on every single send.
+#ifdef MSG_NOSIGNAL
+inline constexpr int SEND_FLAGS = MSG_NOSIGNAL;
+#else
+inline constexpr int SEND_FLAGS = 0; // SO_NOSIGPIPE already covers this here
+#endif
+
 inline bool write_all(int fd, const void *buf, size_t remaining) {
     const uint8_t *cursor = (const uint8_t *)buf;
     while (remaining) {
-        ssize_t moved = send(fd, cursor, remaining, 0);
+        ssize_t moved = send(fd, cursor, remaining, SEND_FLAGS);
         if (moved < 0) {
-            if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
+            if (errno == EINTR)
                 continue;
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                // A non-blocking socket whose send buffer is full. Looping
+                // straight back to send() would burn a whole core waiting for
+                // the peer to read; block for room instead. Giving up after
+                // 100 ms lets the caller drop the connection and retry rather
+                // than stalling the receive loop indefinitely.
+                pollfd pfd{fd, POLLOUT, 0};
+                if (::poll(&pfd, 1, 100) <= 0)
+                    return false;
+                continue;
+            }
             return false;
         }
         cursor += moved;

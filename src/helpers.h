@@ -41,22 +41,30 @@ inline uint64_t get_u64(const uint8_t *bytes) {
 // based on IEX format price * 10000
 //  Signed: IEX encodes price as a signed 8-byte fixed-point value, so an
 //  unsigned parameter would turn any negative price into ~1.8e15.
-constexpr int64_t PRICE_MULTIPLIER = 10000;
+inline constexpr int64_t PRICE_MULTIPLIER = 10000;
 inline double price_to_double(int64_t price) {
     return (double)price / (double)PRICE_MULTIPLIER;
 }
 
 struct OrderMessage {
     char type = 0;
-    char symbol[9];
+    // Zero-initialized, not just sized: OrderMessage_encode copies 8 bytes of
+    // this unconditionally, so leftover stack bytes in an unset symbol would
+    // be published to every listener and break byte-for-byte reproducibility.
+    char symbol[9] = {};
     int64_t price = 0;
     uint32_t size = 0;
     uint64_t timestamp = 0;
 };
-constexpr size_t ORDER_MESSAGE_SIZE = sizeof(OrderMessage);
-constexpr size_t HDR_BYTES = 16;
-constexpr uint32_t MAGIC = 0x4d464844; // "MFHD"
-constexpr size_t MAX_REPAIR_BATCH = 512;
+// The WIRE size -- deliberately not sizeof(OrderMessage). The in-memory struct
+// is padded to 40 bytes (price lands at offset 16, timestamp at 32), and none
+// of that padding is part of the protocol. Keep this in step with
+// OrderMessage_encode/OrderMessage_decode, whose packed layout is:
+//   type u8 @0 | symbol 8B @1 | price i64 @9 | size u32 @17 | timestamp u64 @21
+inline constexpr size_t ORDER_MESSAGE_SIZE = 1 + 8 + 8 + 4 + 8; // 29
+inline constexpr size_t HDR_BYTES = 16;
+inline constexpr uint32_t MAGIC = 0x4d464844; // "MFHD"
+inline constexpr size_t MAX_REPAIR_BATCH = 512;
 inline size_t dgram_encode(uint8_t *bytes, uint16_t bucket, uint64_t sequence,
                            const uint8_t *msg_bytes) {
     put_u32(bytes, MAGIC);

@@ -7,9 +7,12 @@ WORKDIR /app
 COPY Makefile ./
 COPY src/ src/
 
-RUN make -j"$(nproc)"
+# Building here is not just packaging: it is the only place this code sees a
+# second compiler and a second OS. GCC 14 catches what Apple clang accepts,
+# and Linux exercises the #else half of every platform conditional -- which is
+# where a SIGPIPE that kills the whole publisher was found hiding.
+RUN make -j"$(nproc)" && make check
 
-# Captures live in pcapngs/, which .dockerignore excludes (they are multi-GB).
-# Mount one at run time so PCAP_FILE (src/env.h, relative to /app) resolves:
-#   docker run --rm -v "$PWD/pcapngs:/app/pcapngs" megafeedhandler
-CMD ["sh", "-c", "[ -x bin/exchange ] && exec ./bin/exchange || { echo 'built binaries:'; ls -1 bin; }"]
+COPY run-pipeline.sh ./
+
+CMD ["./run-pipeline.sh"]

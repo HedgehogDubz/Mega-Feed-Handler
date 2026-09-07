@@ -67,7 +67,7 @@ struct FeedPublisher {
         Bucket &bucket = buckets[(size_t)bucket_index];
         bucket.golden.apply(msg);
 
-        uint8_t payload[ORDER_MESSAGE_SIZE];
+        uint8_t payload[ORDER_MESSAGE_SIZE] = {};
         OrderMessage_encode(payload, msg);
         uint64_t sequence;
         {
@@ -102,7 +102,7 @@ struct FeedPublisher {
     void finish() {
         OrderMessage end_message;
         end_message.type = 'E';
-        uint8_t payload[ORDER_MESSAGE_SIZE];
+        uint8_t payload[ORDER_MESSAGE_SIZE] = {};
         OrderMessage_encode(payload, end_message);
         std::vector<uint64_t> end_sequences((size_t)bucket_count);
         {

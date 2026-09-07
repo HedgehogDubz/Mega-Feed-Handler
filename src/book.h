@@ -97,6 +97,11 @@ struct BookSet {
   Fingerprint fingerprint;
   // How many times an update produced an impossible book. Reported, not fatal.
   uint64_t crossed = 0;
+  // Printing every one of these is self-defeating: on a bad feed it is
+  // hundreds of thousands of formatted stderr writes inside the publish hot
+  // path, which starves the receive loop and causes more loss than it
+  // diagnoses. Name the first few, then let `crossed` do the counting.
+  static constexpr uint64_t CROSSED_PRINT_MAX = 10;
 
   void apply(const OrderMessage &OrderMessage) {
     // The end-of-stream marker is bookkeeping, not market data -- mixing it
@@ -111,11 +116,16 @@ struct BookSet {
       // Crossed. Count it and name the exact message, then keep going: a
       // consumer that dies here would lose the diagnostics that follow.
       crossed++;
-      fprintf(stderr,
-              "IMPOSSIBLE BOOK: %s bid %.2f >= ask %.2f -- the book is wrong, "
-              "and this is the exact message that broke it\n",
-              OrderMessage.symbol, price_to_double(book.bids.begin()->first),
-              price_to_double(book.asks.begin()->first));
+      if (crossed <= CROSSED_PRINT_MAX) {
+        fprintf(stderr,
+                "IMPOSSIBLE BOOK: %s bid %.2f >= ask %.2f -- the book is "
+                "wrong, and this is the exact message that broke it\n",
+                OrderMessage.symbol, price_to_double(book.bids.begin()->first),
+                price_to_double(book.asks.begin()->first));
+        if (crossed == CROSSED_PRINT_MAX)
+          fprintf(stderr, "IMPOSSIBLE BOOK: further reports suppressed; the "
+                          "running total is reported at exit\n");
+      }
     }
 
     // Where the touch sits now, versus where it sat before this message.
