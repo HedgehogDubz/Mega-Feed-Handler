@@ -109,22 +109,12 @@ The symbol is compile-time, not an argument:
 
 
 ## If The Ladder Stays Empty
-┌─────────────────────┬──────────────────────────────────────────────┐
-│       Symptom       │                    Cause                     │
-├─────────────────────┼──────────────────────────────────────────────┤
-│ feed: 0 delivered   │ feedhandler never published -- check its log │
-│ forever             │ for Packets received: 0                      │
-├─────────────────────┼──────────────────────────────────────────────┤
-│ Packets received: 0 │ separate containers each get a private lo,   │
-│                     │ so they never see each other. Everything     │
-│                     │ must share ONE container                     │
-├─────────────────────┼──────────────────────────────────────────────┤
-│ fopen: No such      │ the mount is wrong -- run                    │
-│ file or directory   │ docker exec mfh ./bin/checkcap               │
-├─────────────────────┼──────────────────────────────────────────────┤
-│ Capture gaps is     │ the replay outran the handler -- lower       │
-│ not 0               │ REPLAY_PPS in src/env.h                      │
-├─────────────────────┼──────────────────────────────────────────────┤
-│ spread is negative  │ always upstream loss, never a book bug --    │
-│                     │ check Capture gaps first                     │
-└─────────────────────┴──────────────────────────────────────────────┘
+
+| Symptom | Cause |
+| :--- | :--- |
+| `feed: 0 delivered forever` | feedhandler never published -- check its log for `Packets received: 0` |
+| `Packets received: 0` | separate containers each get a private `lo`, so they never see each other. Everything must share ONE container |
+| `fopen: No such file or directory` | the mount is wrong -- run <br>`docker exec mfh ./bin/checkcap` |
+| `Capture gaps is not 0` | the replay outran the handler -- lower `REPLAY_PPS` in `src/env.h` |
+| spread is negative | always upstream loss, never a book bug -- check `Capture gaps` first |
+
