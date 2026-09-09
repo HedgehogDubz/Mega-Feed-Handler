@@ -18,23 +18,15 @@
     156 M packets over 9.8 hours — a full session. Reading all 24 GB takes ~90 s.
 
 2. On error: Read the exit code / message. Each failure mode is distinct and verified:
-┌───────────┬────────────────────────────────┬──────────────────────────────┐
-│  Symptom  │            Message             │           Meaning            │
-├───────────┼────────────────────────────────┼──────────────────────────────┤
-│ missing   │ fopen: No such file or         │ wrong path or not mounted    │
-│           │ directory                      │                              │
-├───────────┼────────────────────────────────┼──────────────────────────────┤
-│ 0–3 bytes │ too short to be a capture file │ download produced nothing    │
-├───────────┼────────────────────────────────┼──────────────────────────────┤
-│ classic   │ classic pcap is not supported, │ wrong format — convert with  │
-│ pcap      │  only pcapng                   │ mergecap -w out.pcap in.pcap │
-├───────────┼────────────────────────────────┼──────────────────────────────┤
-│ not a     │ not a pcapng file (magic       │ it's an HTML error page or   │
-│ capture   │ 0x6c6c6568)                    │ partial gzip                 │
-├───────────┼────────────────────────────────┼──────────────────────────────┤
-│ short     │ only N packets, but            │ usable, just stops early     │
-│           │ PCAP_PACKET_COUNT is 1000000   │ (exit 2)                     │
-└───────────┴────────────────────────────────┴──────────────────────────────┘
+
+| Symptom | Message | Meaning |
+| :--- | :--- | :--- |
+| missing | `fopen: No such file or directory` | wrong path or not mounted |
+| 0–3 bytes | `too short to be a capture file` | download produced nothing |
+| classic pcap | `classic pcap is not supported, only pcapng` | wrong format — convert with <br>`mergecap -F pcapng -w out.pcapng in.pcap` |
+| not a capture | `not a pcapng file (magic 0x6c6c6568)` | it's an HTML error page or partial gzip |
+| short | `only N packets, but PCAP_PACKET_COUNT is 1000000` | usable, just stops early (exit 2) |
+
 3. Make sure all Addresses are correct for your machine
 
 
